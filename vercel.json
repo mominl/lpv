@@ -1,9 +1,3 @@
 {
-  "version": 2,
-  "rewrites": [
-    {
-      "source": "/ass1",
-      "destination": "/api/ass1"
-    }
-  ]
+  "version": 2
 }
