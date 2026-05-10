@@ -1,0 +1,43 @@
+import pandas as pd
+import numpy as np
+from tensorflow import keras
+from tensorflow.keras import layers
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.datasets import fetch_openml
+
+boston = fetch_openml( name = "boston" , version = 1 , as_frame = True)
+
+X = boston.data
+
+Y = boston.target.astype(float)
+
+X_train , X_test, Y_train , Y_test = train_test_split(X , Y , test_size = 0.2 , random_state = 42)
+
+scaler = StandardScaler()
+
+X_train = scaler.fit_transform(X_train)
+X_test = scaler.transform(X_test)
+
+model = keras.Sequential([layers.Dense(64, activation = 'relu', input_shape =(X_train.shape[1], )),
+layers.Dense(32 , activation = "relu"),
+layers.Dense(1)
+])
+
+model.compile(
+    optimizer = "adam",
+    loss = "mse",
+    metrics = ["mae"]
+)
+
+history = model.fit(
+    X_train , Y_train,
+    epochs  =100,
+    batch_size = 32,
+    validation_split = 0.2,
+    verbose = 1
+    )
+
+loss , mae = model.evaluate(X_test , Y_test)
+print("loss of mae", loss)
+print("test " , mae)
