@@ -6,10 +6,13 @@ module.exports = (req, res) => {
   const filePath = path.join(__dirname, "..", "files", fileName);
 
   if (!fs.existsSync(filePath)) {
-    return res.status(404).send("File not found");
+    res.status(404).end("File not found");
+    return;
   }
 
+  const fileContent = fs.readFileSync(filePath);
   res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
   res.setHeader("Content-Type", "text/plain; charset=utf-8");
-  return res.send(fs.readFileSync(filePath));
+  res.setHeader("Content-Length", fileContent.length);
+  res.status(200).end(fileContent);
 };
