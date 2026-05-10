@@ -1,0 +1,81 @@
+# Recurrent Neural Network (RNN) - Stock Price Prediction using LSTM
+
+# Import libraries
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, LSTM
+from sklearn.preprocessing import MinMaxScaler
+
+# Step 1: Load dataset
+url = "https://raw.githubusercontent.com/plotly/datasets/master/finance-charts-apple.csv"
+df = pd.read_csv(url)
+
+# Use Apple closing price column
+data = df[['AAPL.Close']].values
+
+# Step 2: Normalize data
+scaler = MinMaxScaler(feature_range=(0, 1))
+data_scaled = scaler.fit_transform(data)
+
+# Step 3: Create sequences
+def create_dataset(dataset, time_step=60):
+    X, y = [], []
+
+    for i in range(time_step, len(dataset)):
+        X.append(dataset[i-time_step:i, 0])
+        y.append(dataset[i, 0])
+
+    return np.array(X), np.array(y)
+
+time_step = 60
+X, y = create_dataset(data_scaled, time_step)
+
+# Train-test split
+split = int(len(X) * 0.8)
+
+X_train, X_test = X[:split], X[split:]
+y_train, y_test = y[:split], y[split:]
+
+# Reshape for LSTM
+X_train = X_train.reshape(X_train.shape[0], X_train.shape[1], 1)
+X_test = X_test.reshape(X_test.shape[0], X_test.shape[1], 1)
+
+# Step 4: Build model
+model = Sequential([
+    LSTM(50, return_sequences=True, input_shape=(X_train.shape[1], 1)),
+    LSTM(50),
+    Dense(1)
+])
+
+# Compile model
+model.compile(optimizer='adam', loss='mean_squared_error')
+
+# Step 5: Train model
+model.fit(X_train, y_train, epochs=10, batch_size=32)
+
+# Step 6: Predict
+test_pred = model.predict(X_test)
+
+# Inverse scaling
+test_pred = scaler.inverse_transform(test_pred)
+y_test_actual = scaler.inverse_transform(y_test.reshape(-1, 1))
+
+# Step 7: Plot results
+plt.figure(figsize=(10, 5))
+
+plt.plot(y_test_actual, label='Actual Price')
+plt.plot(test_pred, label='Predicted Price')
+
+plt.title("Stock Price Prediction using RNN (LSTM)")
+plt.xlabel("Time")
+plt.ylabel("Stock Price")
+plt.legend()
+
+plt.show()
+
+g++ -fopenmp bfs_dfs.cpp -o bfs_dfs
+
+./bfs_dfs
