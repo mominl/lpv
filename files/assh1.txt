@@ -1,81 +1,156 @@
-# Recurrent Neural Network (RNN) - Stock Price Prediction using LSTM
+#include <iostream>
+#include <omp.h>
 
-# Import libraries
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
+using namespace std;
 
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense, LSTM
-from sklearn.preprocessing import MinMaxScaler
+#define MAX 100
 
-# Step 1: Load dataset
-url = "https://raw.githubusercontent.com/plotly/datasets/master/finance-charts-apple.csv"
-df = pd.read_csv(url)
+class Graph {
+    int V;
+    int adj[MAX][MAX];
 
-# Use Apple closing price column
-data = df[['AAPL.Close']].values
+public:
+    Graph(int vertices) {
+        V = vertices;
 
-# Step 2: Normalize data
-scaler = MinMaxScaler(feature_range=(0, 1))
-data_scaled = scaler.fit_transform(data)
+        // Initialize adjacency matrix
+        for (int i = 0; i < MAX; i++) {
+            for (int j = 0; j < MAX; j++) {
+                adj[i][j] = 0;
+            }
+        }
+    }
 
-# Step 3: Create sequences
-def create_dataset(dataset, time_step=60):
-    X, y = [], []
+    // Add edge
+    void addEdge(int u, int v) {
+        adj[u][v] = 1;
+        adj[v][u] = 1;
+    }
 
-    for i in range(time_step, len(dataset)):
-        X.append(dataset[i-time_step:i, 0])
-        y.append(dataset[i, 0])
+    // Parallel BFS
+    void parallelBFS(int start) {
 
-    return np.array(X), np.array(y)
+        bool visited[MAX] = {false};
+        int frontier[MAX], next_frontier[MAX];
 
-time_step = 60
-X, y = create_dataset(data_scaled, time_step)
+        int frontier_size = 0;
+        int next_size = 0;
 
-# Train-test split
-split = int(len(X) * 0.8)
+        frontier[frontier_size++] = start;
+        visited[start] = true;
 
-X_train, X_test = X[:split], X[split:]
-y_train, y_test = y[:split], y[split:]
+        cout << "Parallel BFS: ";
 
-# Reshape for LSTM
-X_train = X_train.reshape(X_train.shape[0], X_train.shape[1], 1)
-X_test = X_test.reshape(X_test.shape[0], X_test.shape[1], 1)
+        while (frontier_size > 0) {
 
-# Step 4: Build model
-model = Sequential([
-    LSTM(50, return_sequences=True, input_shape=(X_train.shape[1], 1)),
-    LSTM(50),
-    Dense(1)
-])
+            next_size = 0;
 
-# Compile model
-model.compile(optimizer='adam', loss='mean_squared_error')
+#pragma omp parallel for
+            for (int i = 0; i < frontier_size; i++) {
 
-# Step 5: Train model
-model.fit(X_train, y_train, epochs=10, batch_size=32)
+                int node = frontier[i];
 
-# Step 6: Predict
-test_pred = model.predict(X_test)
+#pragma omp critical
+                cout << node << " ";
 
-# Inverse scaling
-test_pred = scaler.inverse_transform(test_pred)
-y_test_actual = scaler.inverse_transform(y_test.reshape(-1, 1))
+                for (int j = 0; j < V; j++) {
 
-# Step 7: Plot results
-plt.figure(figsize=(10, 5))
+                    if (adj[node][j] == 1 && !visited[j]) {
 
-plt.plot(y_test_actual, label='Actual Price')
-plt.plot(test_pred, label='Predicted Price')
+#pragma omp critical
+                        {
+                            if (!visited[j]) {
+                                visited[j] = true;
+                                next_frontier[next_size++] = j;
+                            }
+                        }
+                    }
+                }
+            }
 
-plt.title("Stock Price Prediction using RNN (LSTM)")
-plt.xlabel("Time")
-plt.ylabel("Stock Price")
-plt.legend()
+            // Copy next frontier
+            frontier_size = next_size;
 
-plt.show()
+            for (int i = 0; i < next_size; i++) {
+                frontier[i] = next_frontier[i];
+            }
+        }
 
-g++ -fopenmp bfs_dfs.cpp -o bfs_dfs
+        cout << endl;
+    }
 
-./bfs_dfs
+    // Parallel DFS Utility
+    void parallelDFSUtil(int node, bool visited[]) {
+
+        visited[node] = true;
+
+#pragma omp critical
+        cout << node << " ";
+
+        for (int i = 0; i < V; i++) {
+
+            if (adj[node][i] == 1 && !visited[i]) {
+
+#pragma omp task
+                parallelDFSUtil(i, visited);
+            }
+        }
+    }
+
+    // Parallel DFS
+    void parallelDFS(int start) {
+
+        bool visited[MAX] = {false};
+
+        cout << "Parallel DFS: ";
+
+#pragma omp parallel
+        {
+#pragma omp single
+            {
+                parallelDFSUtil(start, visited);
+            }
+        }
+
+        cout << endl;
+    }
+};
+
+int main() {
+
+    int V, E;
+
+    cout << "Enter number of vertices: ";
+    cin >> V;
+
+    Graph g(V);
+
+    cout << "Enter number of edges: ";
+    cin >> E;
+
+    cout << "Enter edges (u v):\n";
+
+    for (int i = 0; i < E; i++) {
+
+        int u, v;
+        cin >> u >> v;
+
+        if (u >= V || v >= V) {
+            cout << "Invalid edge!\n";
+            i--;
+            continue;
+        }
+
+        g.addEdge(u, v);
+    }
+
+    int start;
+
+    cout << "Enter starting node: ";
+    cin >> start;
+
+    g.parallelBFS(start);
+    g.parallelDFS(start);
+
+    return 0;
+}
